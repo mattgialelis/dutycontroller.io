@@ -113,7 +113,7 @@ func (r *BusinessServiceReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	// Check if the BusinessService instance exists
-	_, exists, err := r.PagerClient.GetBusinessServicebyName(req.Name)
+	_, exists, err := r.PagerClient.GetBusinessServicebyName(ctx, req.Name, true)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("could not get business service by name: %w", err)
 	}
@@ -144,7 +144,7 @@ func (r *BusinessServiceReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 		if createdCondition != nil && createdCondition.Status == metav1.ConditionTrue {
 
-			err = r.PagerClient.UpdateBusinessService(pagerbusinesService)
+			err = r.PagerClient.UpdateBusinessService(ctx, pagerbusinesService)
 			if err != nil {
 				return ctrl.Result{}, fmt.Errorf("could not update business service: %w", err)
 			}
@@ -152,7 +152,7 @@ func (r *BusinessServiceReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 		} else {
 			log.Info("Business Service already exists in Pagerduty", "ID", businesService.Status.ID)
-			condtions.SetCondition(&businesService.Status.Conditions, condtions.ConditionReasonFailed, metav1.ConditionTrue, "Service cannot be created, already exists in PagerDuty")
+			condtions.SetCondition(&businesService.Status.Conditions, condtions.ConditionReasonFailed, metav1.ConditionTrue, "BusinessService cannot be created, already exists in PagerDuty")
 			return ctrl.Result{}, nil
 		}
 

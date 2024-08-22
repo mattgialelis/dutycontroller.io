@@ -212,7 +212,7 @@ func (r *OrchestrationroutesReconciler) LookupService(ctx context.Context, names
 		if apierrors.IsNotFound(err) {
 			log.Info("Service not found in cluster, fetching from PagerDuty", "namespace", namespace, "name", serviceName)
 
-			pagerDutyService, exists, err := r.PagerClient.GetPagerDutyServiceByNameDirect(ctx, serviceName)
+			pagerDutyService, exists, err := r.PagerClient.GetPagerDutyServiceByName(ctx, serviceName, true)
 			if err != nil || !exists {
 				return "", fmt.Errorf("could not get  service by name: %w", err)
 			}
@@ -264,7 +264,7 @@ func RandomRequeueTimer() time.Duration {
 
 	// Define the minimum and maximum durations in seconds
 	minDuration := 2 * 60 // 2 minutes in seconds
-	maxDuration := 5 * 60 // 5 minutes in seconds
+	maxDuration := 4 * 60 // 5 minutes in seconds
 
 	// Generate a random duration between minDuration and maxDuration
 	randomDurationInSeconds := rand.Intn(maxDuration-minDuration+1) + minDuration
