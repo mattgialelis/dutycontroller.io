@@ -46,7 +46,8 @@ func (s *Service) ToPagerDutyService() pagerduty.Service {
 	}
 }
 
-func (p *Pagerduty) CreatePagerDutyService(service Service) (string, error) {
+func (p *Pagerduty) CreatePagerDutyService(ctx context.Context, service Service) (string, error) {
+	log := log.FromContext(ctx)
 
 	serviceInput := service.ToPagerDutyService()
 
@@ -56,27 +57,61 @@ func (p *Pagerduty) CreatePagerDutyService(service Service) (string, error) {
 		return "", fmt.Errorf("failed to create service: %w", err)
 	}
 
+	// Force a refresh of the cache after successful update
+	err = p.ForceRefreshServiceCache()
+	if err != nil {
+		// Log the error but don't return it, as the update was successful
+		log.Info("Warning: Failed to refresh service cache after update:", "Warning", err)
+	}
+
 	return newService.ID, nil
 }
 
-func (p *Pagerduty) UpdatePagerDutyService(service Service) error {
+func (p *Pagerduty) UpdatePagerDutyService(ctx context.Context, service Service) error {
+	log := log.FromContext(ctx)
 
-	serviceInput := service.ToPagerDutyService()
-
-	existingService, _, err := p.GetPagerDutyServiceByNameDirect(context.TODO(), service.Name)
+	existingService, _, err := p.GetPagerDutyServiceByName(context.TODO(), service.Name, true)
 	if err != nil {
 		return err
 	}
 
+	// Check if any relevant fields have changed
+	if !needsUpdate(existingService, service) {
+		log.Info("No changes detected for service. Skipping update.", "serviceName:", service.Name)
+		return nil
+	}
+
+	serviceInput := service.ToPagerDutyService()
 	serviceInput.ID = existingService.ID
 
 	_, err = p.client.UpdateServiceWithContext(context.TODO(), serviceInput)
-
 	if err != nil {
 		return fmt.Errorf("failed to update service: %w", err)
 	}
 
+	// Force a refresh of the cache after successful update
+	err = p.ForceRefreshServiceCache()
+	if err != nil {
+		// Log the error but don't return it, as the update was successful
+		log.Info("Warning: Failed to refresh service cache after update:", "Warning", err)
+	}
+
 	return nil
+}
+
+// needsUpdate compares the existing service with the new service data
+// and returns true if any relevant fields have changed
+func needsUpdate(existing pagerduty.Service, new Service) bool {
+	if existing.Name != new.Name {
+		return true
+	}
+	if existing.Description != new.Description {
+		return true
+	}
+	if existing.EscalationPolicy.ID != new.EscalationPolicyID {
+		return true
+	}
+	return false
 }
 
 func (p *Pagerduty) DeletePagerDutyService(ctx context.Context, id string) error {
@@ -92,7 +127,42 @@ func (p *Pagerduty) DeletePagerDutyService(ctx context.Context, id string) error
 		}
 	}
 
+	// Force a refresh of the cache after successful update
+	err = p.ForceRefreshServiceCache()
+	if err != nil {
+		// Log the error but don't return it, as the update was successful
+		log.Info("Warning: Failed to refresh service cache after delete", "Warning", err)
+	}
+
 	return nil
+}
+
+func (p *Pagerduty) GetPagerDutyServiceByName(ctx context.Context, name string, useCache bool) (pagerduty.Service, bool, error) {
+	log := log.FromContext(ctx)
+
+	if useCache {
+		serviceCache, err := p.GetServiceCache()
+		if err != nil {
+			switch err.(type) {
+			case *CacheNotRegistered:
+				log.Info("ServiceCache not registered, falling back to direct PagerDuty call")
+			case *CacheEmpty:
+				log.Info("ServiceCache is empty, falling back to direct PagerDuty call")
+			default:
+				log.Info("Error retrieving ServiceCache, falling back to direct PagerDuty call", "Warning", err)
+			}
+		} else {
+			for _, svc := range serviceCache.cache {
+				if svc.Name == name {
+					return svc, true, nil
+				}
+			}
+
+			log.Info("Service not found in ServiceCache, falling back to direct PagerDuty call")
+		}
+	}
+
+	return p.GetPagerDutyServiceByNameDirect(ctx, name)
 }
 
 func (p *Pagerduty) GetPagerDutyServiceByNameDirect(ctx context.Context, name string) (pagerduty.Service, bool, error) {
@@ -108,7 +178,7 @@ func (p *Pagerduty) GetPagerDutyServiceByNameDirect(ctx context.Context, name st
 			pagerduty.ListServiceOptions{Limit: 100, Offset: offset},
 		)
 		if err != nil {
-			log.Info("Failed to refresh PagerDuty service cache:", err)
+			log.Info("Failed to refresh PagerDuty service cache", "Warning", err)
 			return pagerduty.Service{}, false, err
 		}
 		allServices = append(allServices, services...)

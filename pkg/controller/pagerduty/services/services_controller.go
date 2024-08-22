@@ -129,14 +129,14 @@ func (r *ServicesReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	pagerService := pd.ServicesSpectoService(service, escalationPolicyId)
 
 	//Check if the Service instance exists
-	_, exists, err := r.PagerClient.GetPagerDutyServiceByNameDirect(ctx, req.Name)
+	_, exists, err := r.PagerClient.GetPagerDutyServiceByName(ctx, req.Name, true)
 	if err != nil && exists {
 		return ctrl.Result{}, fmt.Errorf("could not get service by name: %w", err)
 	}
 
 	if !exists {
 		// Create Service
-		id, err := r.PagerClient.CreatePagerDutyService(pagerService)
+		id, err := r.PagerClient.CreatePagerDutyService(ctx, pagerService)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("could not create service: %w", err)
 		}
@@ -150,7 +150,7 @@ func (r *ServicesReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	} else {
 		if createdCondition != nil && createdCondition.Status == v1.ConditionTrue {
 			// Update Service
-			err = r.PagerClient.UpdatePagerDutyService(pagerService)
+			err = r.PagerClient.UpdatePagerDutyService(ctx, pagerService)
 			if err != nil {
 				return ctrl.Result{}, fmt.Errorf("could not update service: %w", err)
 			}
@@ -208,7 +208,7 @@ func (r *ServicesReconciler) getBusinessServiceId(ctx context.Context, service *
 		}, &businessService); err != nil {
 			if apierrors.IsNotFound(err) {
 				log.Info("BusinessService not found in cluster, fetching from PagerDuty", "namespace", service.Namespace, "name", service.Spec.BusinessService)
-				businessServiceId, _, err := r.PagerClient.GetBusinessServicebyName(service.Name)
+				businessServiceId, _, err := r.PagerClient.GetBusinessServicebyName(ctx, service.Spec.BusinessService, true)
 				if err != nil {
 					return "", fmt.Errorf("could not get business service by name: %w", err)
 				}

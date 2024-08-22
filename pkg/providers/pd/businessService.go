@@ -2,8 +2,10 @@ package pd
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/PagerDuty/go-pagerduty"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	pagerdutyv1beta1 "github.com/mattgialelis/dutycontroller/api/v1beta1"
 )
@@ -41,7 +43,29 @@ func (b *BusinessService) ToPagerDutyBusinessService() *pagerduty.BusinessServic
 // Input:
 //
 //	name:  Name of the business service
-func (pd *Pagerduty) GetBusinessServicebyName(name string) (string, bool, error) {
+func (pd *Pagerduty) GetBusinessServicebyName(ctx context.Context, name string, useCache bool) (string, bool, error) {
+	log := log.FromContext(ctx)
+
+	if useCache {
+		businessServiceCache, err := pd.GetBusinessServiceCache()
+		if err != nil {
+			switch err.(type) {
+			case *CacheNotRegistered:
+				log.Info("BusinessService not registered, falling back to direct PagerDuty call")
+			case *CacheEmpty:
+				log.Info("BusinessService is empty, falling back to direct PagerDuty call")
+			default:
+				log.Info("Error retrieving BusinessService, falling back to direct PagerDuty call: %v", err)
+			}
+		} else {
+			for _, bs := range businessServiceCache.cache {
+				if bs.Name == name {
+					return bs.ID, true, nil
+				}
+			}
+			log.Info("BusinessService not found in Cache, falling back to direct PagerDuty call", "BusinessService", name)
+		}
+	}
 
 	bservices, err := pd.client.ListBusinessServicesPaginated(context.Background(), pagerduty.ListBusinessServiceOptions{})
 	if err != nil {
@@ -54,7 +78,7 @@ func (pd *Pagerduty) GetBusinessServicebyName(name string) (string, bool, error)
 		}
 	}
 
-	return "", false, nil
+	return "", false, fmt.Errorf("businessService not found")
 }
 
 // Creates a business service
@@ -77,9 +101,9 @@ func (pd *Pagerduty) CreateBusinessService(businessService BusinessService) (str
 // Input:
 //
 //	businessService:  BusinessService struct with the updated values
-func (pd *Pagerduty) UpdateBusinessService(businessService BusinessService) error {
+func (pd *Pagerduty) UpdateBusinessService(ctx context.Context, businessService BusinessService) error {
 
-	id, _, err := pd.GetBusinessServicebyName(businessService.Name)
+	id, _, err := pd.GetBusinessServicebyName(ctx, businessService.Name, true)
 	if err != nil {
 		return err
 	}

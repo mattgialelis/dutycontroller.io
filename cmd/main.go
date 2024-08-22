@@ -21,6 +21,8 @@ import (
 	"flag"
 	"os"
 
+	"github.com/sirupsen/logrus"
+
 	businessservice "github.com/mattgialelis/dutycontroller/pkg/controller/pagerduty/businessservice"
 	orchestrationroutes "github.com/mattgialelis/dutycontroller/pkg/controller/pagerduty/orchestrationroutes"
 	services "github.com/mattgialelis/dutycontroller/pkg/controller/pagerduty/services"
@@ -128,8 +130,9 @@ func main() {
 		os.Exit(1)
 	}
 
+	logrus.Info("Starting pagerduty client")
 	//Start the pagerduty client
-	pagerduty, err := pd.NewPagerduty(pagerdutyToken, 30)
+	pagerduty, err := pd.NewPagerduty(pagerdutyToken, 60)
 	if err != nil {
 		setupLog.Error(err, "Unable to start pagerduty client")
 		os.Exit(1)

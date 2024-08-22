@@ -212,7 +212,7 @@ func (r *OrchestrationroutesReconciler) LookupService(ctx context.Context, names
 		if apierrors.IsNotFound(err) {
 			log.Info("Service not found in cluster, fetching from PagerDuty", "namespace", namespace, "name", serviceName)
 
-			pagerDutyService, exists, err := r.PagerClient.GetPagerDutyServiceByNameDirect(ctx, serviceName)
+			pagerDutyService, exists, err := r.PagerClient.GetPagerDutyServiceByName(ctx, serviceName, true)
 			if err != nil || !exists {
 				return "", fmt.Errorf("could not get  service by name: %w", err)
 			}

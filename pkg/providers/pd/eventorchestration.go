@@ -149,17 +149,28 @@ func (pd *Pagerduty) UpdateOrchestrationServiceRoute(OrchestrationRoute Orchestr
 		}
 	}
 
-	//Load existing Routes for the Orchestrations
+	//Load existing Routes for the Orchestration
 	router, err := pd.client.GetOrchestrationRouterWithContext(context.Background(), orchID, &pagerduty.GetOrchestrationRouterOptions{})
 	if err != nil {
 		return err
 	}
 
+	updated := false
 	for i, rule := range router.Sets[0].Rules {
 		if rule.Actions.RouteTo == OrchestrationRoute.RouteTo {
+
 			OrchestrationRoute.GenerateUpdateFromOrchestrationRouterRule(router.Sets[0].Rules[i])
-			router.Sets[0].Rules[i] = OrchestrationRoute.RuleFromOrchestrationRoute()
+
+			if !routesEqual(*router.Sets[0].Rules[i], *OrchestrationRoute.RuleFromOrchestrationRoute()) {
+				router.Sets[0].Rules[i] = OrchestrationRoute.RuleFromOrchestrationRoute()
+				updated = true
+			}
 		}
+	}
+
+	if !updated {
+		log.Log.Info("No changes to orchestration route", "route", OrchestrationRoute.RouteTo)
+		return nil
 	}
 
 	_, err = pd.client.UpdateOrchestrationRouterWithContext(context.Background(), orchID, *router)
@@ -168,6 +179,34 @@ func (pd *Pagerduty) UpdateOrchestrationServiceRoute(OrchestrationRoute Orchestr
 	}
 
 	return nil
+}
+
+// routesEqual compares two OrchestrationRoutes and returns true if they are equal
+func routesEqual(a, b pagerduty.OrchestrationRouterRule) bool {
+	// Compare Labels
+	if a.Label != b.Label {
+		return false
+	}
+
+	// Compare RouteTo actions
+	if a.Actions == nil || b.Actions == nil {
+		return a.Actions == b.Actions
+	}
+	if a.Actions.RouteTo != b.Actions.RouteTo {
+		return false
+	}
+
+	// Compare Conditions
+	if len(a.Conditions) != len(b.Conditions) {
+		return false
+	}
+	for i := range a.Conditions {
+		if a.Conditions[i].Expression != b.Conditions[i].Expression {
+			return false
+		}
+	}
+
+	return true
 }
 
 func (pd *Pagerduty) DeleteOrchestrationServiceRoute(ctx context.Context, OrchestrationRoute OrchestrationRoute) error {
