@@ -80,6 +80,7 @@ func (pd *Pagerduty) initialCacheRefresh() error {
 	close(errCh)
 
 	// Collect all errors
+	//nolint:prealloc
 	var errors []error
 	for err := range errCh {
 		errors = append(errors, err)
