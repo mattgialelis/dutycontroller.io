@@ -24,6 +24,7 @@ func NewBusinessServiceCache(pd *Pagerduty) *BusinessServiceCache {
 	}
 }
 
+//nolint:dupl
 func (bsc *BusinessServiceCache) Refresh() error {
 	log.Println("BusinessServiceCache: Attempting to acquire mutex")
 	mutexAcquired := make(chan bool, 1)
