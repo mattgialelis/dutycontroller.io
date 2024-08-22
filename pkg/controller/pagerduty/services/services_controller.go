@@ -212,7 +212,6 @@ func (r *ServicesReconciler) getBusinessServiceId(ctx context.Context, service *
 				if err != nil {
 					return "", fmt.Errorf("could not get business service by name: %w", err)
 				}
-				log.Info("BusinessService found in PagerDuty", "service", businessServiceId)
 				return businessServiceId, nil
 			}
 			return "", fmt.Errorf("get BusinessService: %w", err)

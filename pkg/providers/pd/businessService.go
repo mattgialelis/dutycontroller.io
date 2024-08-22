@@ -60,6 +60,8 @@ func (pd *Pagerduty) GetBusinessServicebyName(ctx context.Context, name string, 
 		} else {
 			for _, bs := range businessServiceCache.cache {
 				if bs.Name == name {
+					log.Info("BusinessService found in Cache", "service", bs.ID)
+
 					return bs.ID, true, nil
 				}
 			}
@@ -74,6 +76,8 @@ func (pd *Pagerduty) GetBusinessServicebyName(ctx context.Context, name string, 
 
 	for _, s := range bservices {
 		if s.Name == name {
+			log.Info("BusinessService found in PagerDuty", "service", s.ID)
+
 			return s.ID, true, nil
 		}
 	}

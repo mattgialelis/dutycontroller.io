@@ -264,7 +264,7 @@ func RandomRequeueTimer() time.Duration {
 
 	// Define the minimum and maximum durations in seconds
 	minDuration := 2 * 60 // 2 minutes in seconds
-	maxDuration := 5 * 60 // 5 minutes in seconds
+	maxDuration := 4 * 60 // 5 minutes in seconds
 
 	// Generate a random duration between minDuration and maxDuration
 	randomDurationInSeconds := rand.Intn(maxDuration-minDuration+1) + minDuration
